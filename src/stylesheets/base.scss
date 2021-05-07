@@ -1,10 +1,8 @@
 @import 'colors';
 @import 'fonts';
 @import 'tip';
-@import 'form';
 @import 'error';
 @import 'header';
-@import 'footer';
 @import url(https://www.thoughtworks.com/css/k8s_production/screen.css);
 
 body {
@@ -326,10 +324,9 @@ body {
             overflow: hidden;
             width: 300px;
 
-            p {
+            p p {
               margin: 0;
               border-top: 1px solid rgb(119, 119, 119);
-              border-bottom: 1px solid rgb(119, 119, 119);
               padding: 20px;
               color: $grey-text;
               font-weight: 100;
