@@ -23,22 +23,48 @@ const Sheet = require('./sheet')
 const ExceptionMessages = require('./exceptionMessages')
 const GoogleAuth = require('./googleAuth')
 
+const chooseRingOrder = function (ringName) {
+  switch(ringName.toLowerCase()) {
+    case "adopt": return 0;
+    case "trial": return 1;
+    case "assess": return 2;
+    case "hold": return 3;
+
+    default: throw new Error("Unknown ring name: " + ringName);
+  }
+}
+
 const plotRadar = function (title, blips, currentRadarName, alternativeRadars) {
   if (title.endsWith('.csv')) {
     title = title.substring(0, title.length - 4)
   }
-  document.title = title
+  document.title = 'TechRadar by Pattern Match and Wojciech Gawroński :: BIG DATA, DATA ANALYTICS AND AI TECHNOLOGY RADAR VOL. 1'
   d3.selectAll('.loading').remove()
 
   var rings = _.map(_.uniqBy(blips, 'ring'), 'ring')
-  var ringMap = {}
+  var ringMap = []
   var maxRings = 4
 
   _.each(rings, function (ringName, i) {
     if (i === maxRings) {
       throw new MalformedDataError(ExceptionMessages.TOO_MANY_RINGS)
     }
-    ringMap[ringName] = new Ring(ringName, i)
+
+    if (ringName.toLowerCase() == "adopt") {
+      ringMap[0] = new Ring(ringName, 0)
+    }
+
+    if (ringName.toLowerCase() == "trial") {
+      ringMap[1] = new Ring(ringName, 1)
+    }
+
+    if (ringName.toLowerCase() == "assess") {
+      ringMap[2] = new Ring(ringName, 2)
+    }
+
+    if (ringName.toLowerCase() == "hold") {
+      ringMap[3] = new Ring(ringName, 3)
+    }
   })
 
   var quadrants = {}
@@ -46,7 +72,7 @@ const plotRadar = function (title, blips, currentRadarName, alternativeRadars) {
     if (!quadrants[blip.quadrant]) {
       quadrants[blip.quadrant] = new Quadrant(_.capitalize(blip.quadrant))
     }
-    quadrants[blip.quadrant].add(new Blip(blip.name, ringMap[blip.ring], blip.isNew.toLowerCase() === 'true', blip.topic, blip.description))
+    quadrants[blip.quadrant].add(new Blip(blip.name, ringMap[chooseRingOrder(blip.ring)], blip.isNew.toLowerCase() === 'true', blip.topic, blip.description))
   })
 
   var radar = new Radar()
@@ -202,42 +228,20 @@ const GoogleSheetInput = function () {
   var sheet
 
   self.build = function () {
-    var domainName = DomainName(window.location.search.substring(1))
-    var queryString = window.location.href.match(/sheetId(.*)/)
-    var queryParams = queryString ? QueryParams(queryString[0]) : {}
+    var queryString = "sheetId=https%3A%2F%2Fdocs.google.com%2Fspreadsheets%2Fd%2F1153IQsLOI568N50TnrdJQQ5NsArjJHfnBqvmDuSVEsI%2F"
+    var queryParams = queryString ? QueryParams(queryString) : {}
 
-    if (domainName && queryParams.sheetId.endsWith('csv')) {
-      sheet = CSVDocument(queryParams.sheetId)
-      sheet.init().build()
-    } else if (domainName && domainName.endsWith('google.com') && queryParams.sheetId) {
-      sheet = GoogleSheet(queryParams.sheetId, queryParams.sheetName)
-      console.log(queryParams.sheetName)
+    sheet = GoogleSheet(queryParams.sheetId, queryParams.sheetName)
+    console.log(queryParams.sheetName)
 
-      sheet.init().build()
-    } else {
-      var content = d3.select('body')
-        .append('div')
-        .attr('class', 'input-sheet')
-      setDocumentTitle()
-
-      plotLogo(content)
-
-      var bannerText = '<div><h1>Build your own radar</h1><p>Once you\'ve <a href ="https://www.thoughtworks.com/radar/byor">created your Radar</a>, you can use this service' +
-        ' to generate an <br />interactive version of your Technology Radar. Not sure how? <a href ="https://www.thoughtworks.com/radar/how-to-byor">Read this first.</a></p></div>'
-
-      plotBanner(content, bannerText)
-
-      plotForm(content)
-
-      plotFooter(content)
-    }
+    sheet.init().build()
   }
 
   return self
 }
 
 function setDocumentTitle () {
-  document.title = 'Build your own Radar'
+  document.title = 'TechRadar by Pattern Match and Wojciech Gawroński :: BIG DATA, DATA ANALYTICS AND AI TECHNOLOGY RADAR VOL. 1'
 }
 
 function plotLoading (content) {
@@ -248,37 +252,6 @@ function plotLoading (content) {
     .attr('class', 'input-sheet')
 
   setDocumentTitle()
-
-  plotLogo(content)
-
-  var bannerText = '<h1>Building your radar...</h1><p>Your Technology Radar will be available in just a few seconds</p>'
-  plotBanner(content, bannerText)
-  plotFooter(content)
-}
-
-function plotLogo (content) {
-  content.append('div')
-    .attr('class', 'input-sheet__logo')
-    .html('<a href="https://www.thoughtworks.com"><img src="/images/tw-logo.png" / ></a>')
-}
-
-function plotFooter (content) {
-  content
-    .append('div')
-    .attr('id', 'footer')
-    .append('div')
-    .attr('class', 'footer-content')
-    .append('p')
-    .html('Powered by <a href="https://www.thoughtworks.com"> ThoughtWorks</a>. ' +
-      'By using this service you agree to <a href="https://www.thoughtworks.com/radar/tos">ThoughtWorks\' terms of use</a>. ' +
-      'You also agree to our <a href="https://www.thoughtworks.com/privacy-policy">privacy policy</a>, which describes how we will gather, use and protect any personal data contained in your public Google Sheet. ' +
-      'This software is <a href="https://github.com/thoughtworks/build-your-own-radar">open source</a> and available for download and self-hosting.')
-}
-
-function plotBanner (content, text) {
-  content.append('div')
-    .attr('class', 'input-sheet__banner')
-    .html(text)
 }
 
 function plotForm (content) {
@@ -313,13 +286,6 @@ function plotErrorMessage (exception) {
     .attr('class', 'input-sheet')
   setDocumentTitle()
 
-  plotLogo(content)
-
-  var bannerText = '<div><h1>Build your own radar</h1><p>Once you\'ve <a href ="https://www.thoughtworks.com/radar/byor">created your Radar</a>, you can use this service' +
-    ' to generate an <br />interactive version of your Technology Radar. Not sure how? <a href ="https://www.thoughtworks.com/radar/how-to-byor">Read this first.</a></p></div>'
-
-  plotBanner(content, bannerText)
-
   d3.selectAll('.loading').remove()
   message = "Oops! We can't find the Google Sheet you've entered"
   var faqMessage = 'Please check <a href="https://www.thoughtworks.com/radar/how-to-byor">FAQs</a> for possible solutions.'
@@ -345,8 +311,6 @@ function plotErrorMessage (exception) {
 
   errorContainer.append('div').append('p')
     .html(homePage)
-
-  plotFooter(content)
 }
 
 function plotUnauthorizedErrorMessage () {
@@ -354,12 +318,6 @@ function plotUnauthorizedErrorMessage () {
     .append('div')
     .attr('class', 'input-sheet')
   setDocumentTitle()
-
-  plotLogo(content)
-
-  var bannerText = '<div><h1>Build your own radar</h1></div>'
-
-  plotBanner(content, bannerText)
 
   d3.selectAll('.loading').remove()
   const currentUser = GoogleAuth.geEmail()
