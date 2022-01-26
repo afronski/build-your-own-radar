@@ -1,7 +1,7 @@
 /* eslint no-constant-condition: "off" */
 
 const d3 = require('d3')
-const Tabletop = require('tabletop')
+const Papa = require('papaparse')
 const _ = {
   map: require('lodash/map'),
   uniqBy: require('lodash/uniqBy'),
@@ -38,7 +38,7 @@ const plotRadar = function (title, blips, currentRadarName, alternativeRadars) {
   if (title.endsWith('.csv')) {
     title = title.substring(0, title.length - 4)
   }
-  document.title = 'TechRadar by Pattern Match and Wojciech Gawroński :: BIG DATA, DATA ANALYTICS AND AI TECHNOLOGY RADAR VOL. 1'
+  document.title = 'TechRadar by Wojciech Gawroński :: BIG DATA, DATA ANALYTICS AND AI TECHNOLOGY RADAR VOL. 1'
   d3.selectAll('.loading').remove()
 
   var rings = _.map(_.uniqBy(blips, 'ring'), 'ring')
@@ -95,87 +95,16 @@ const plotRadar = function (title, blips, currentRadarName, alternativeRadars) {
   new GraphingRadar(size, radar).init().plot()
 }
 
-const GoogleSheet = function (sheetReference, sheetName) {
-  var self = {}
+const FileName = function (url) {
+  var search = /([^\\/]+)$/
+  var match = search.exec(decodeURIComponent(url.replace(/\+/g, ' ')))
 
-  self.build = function () {
-    var sheet = new Sheet(sheetReference)
-    sheet.validate(function (error) {
-      if (!error) {
-        Tabletop.init({
-          key: sheet.id,
-          callback: createBlips
-        })
-        return
-      }
-
-      if (error instanceof SheetNotFoundError) {
-        plotErrorMessage(error)
-        return
-      }
-
-      self.authenticate(false)
-    })
-
-    function createBlips (__, tabletop) {
-      try {
-        if (!sheetName) {
-          sheetName = tabletop.foundSheetNames[0]
-        }
-        var columnNames = tabletop.sheets(sheetName).columnNames
-
-        var contentValidator = new ContentValidator(columnNames)
-        contentValidator.verifyContent()
-        contentValidator.verifyHeaders()
-
-        var all = tabletop.sheets(sheetName).all()
-        var blips = _.map(all, new InputSanitizer().sanitize)
-
-        plotRadar(tabletop.googleSheetName + ' - ' + sheetName, blips, sheetName, tabletop.foundSheetNames)
-      } catch (exception) {
-        plotErrorMessage(exception)
-      }
-    }
+  if (match != null) {
+    var str = match[1]
+    return str
   }
 
-  function createBlipsForProtectedSheet (documentTitle, values, sheetNames) {
-    if (!sheetName) {
-      sheetName = sheetNames[0]
-    }
-    values.forEach(function (value) {
-      var contentValidator = new ContentValidator(values[0])
-      contentValidator.verifyContent()
-      contentValidator.verifyHeaders()
-    })
-
-    const all = values
-    const header = all.shift()
-    var blips = _.map(all, blip => new InputSanitizer().sanitizeForProtectedSheet(blip, header))
-    plotRadar(documentTitle + ' - ' + sheetName, blips, sheetName, sheetNames)
-  }
-
-  self.authenticate = function (force = false, callback) {
-    GoogleAuth.loadGoogle(function (e) {
-      GoogleAuth.login(_ => {
-        var sheet = new Sheet(sheetReference)
-        sheet.processSheetResponse(sheetName, createBlipsForProtectedSheet, error => {
-          if (error.status === 403) {
-            plotUnauthorizedErrorMessage()
-          } else {
-            plotErrorMessage(error)
-          }
-        })
-        if (callback) { callback() }
-      }, force)
-    })
-  }
-
-  self.init = function () {
-    plotLoading()
-    return self
-  }
-
-  return self
+  return url
 }
 
 const CSVDocument = function (url) {
@@ -207,32 +136,12 @@ const CSVDocument = function (url) {
   return self
 }
 
-const DomainName = function (url) {
-  var search = /.+:\/\/([^\\/]+)/
-  var match = search.exec(decodeURIComponent(url.replace(/\+/g, ' ')))
-  return match == null ? null : match[1]
-}
-
-const FileName = function (url) {
-  var search = /([^\\/]+)$/
-  var match = search.exec(decodeURIComponent(url.replace(/\+/g, ' ')))
-  if (match != null) {
-    var str = match[1]
-    return str
-  }
-  return url
-}
-
 const GoogleSheetInput = function () {
   var self = {}
   var sheet
 
   self.build = function () {
-    var queryString = "sheetId=https%3A%2F%2Fdocs.google.com%2Fspreadsheets%2Fd%2F1153IQsLOI568N50TnrdJQQ5NsArjJHfnBqvmDuSVEsI%2F"
-    var queryParams = queryString ? QueryParams(queryString) : {}
-
-    sheet = GoogleSheet(queryParams.sheetId, queryParams.sheetName)
-    console.log(queryParams.sheetName)
+    sheet = CSVDocument('https://docs.google.com/spreadsheets/d/e/2PACX-1vTqU8RFjAy3Rv0swunvZ6fgSgm_c6fNd-XKngTTe0D-r23tMyxi1C5dINTw07dmdSOJuDC5-HJ3Pn0E/pub?output=csv')
 
     sheet.init().build()
   }
@@ -241,7 +150,7 @@ const GoogleSheetInput = function () {
 }
 
 function setDocumentTitle () {
-  document.title = 'TechRadar by Pattern Match and Wojciech Gawroński :: BIG DATA, DATA ANALYTICS AND AI TECHNOLOGY RADAR VOL. 1'
+  document.title = 'TechRadar by Wojciech Gawroński :: BIG DATA, DATA ANALYTICS AND AI TECHNOLOGY RADAR VOL. 1'
 }
 
 function plotLoading (content) {
@@ -254,30 +163,6 @@ function plotLoading (content) {
   setDocumentTitle()
 }
 
-function plotForm (content) {
-  content.append('div')
-    .attr('class', 'input-sheet__form')
-    .append('p')
-    .html('<strong>Enter the URL of your <a href="https://www.thoughtworks.com/radar/how-to-byor" target="_blank">Google Sheet or CSV</a> file below…</strong>')
-
-  var form = content.select('.input-sheet__form').append('form')
-    .attr('method', 'get')
-
-  form.append('input')
-    .attr('type', 'text')
-    .attr('name', 'sheetId')
-    .attr('placeholder', 'e.g. https://docs.google.com/spreadsheets/d/<sheetid> or hosted CSV file')
-    .attr('required', '')
-
-  form.append('button')
-    .attr('type', 'submit')
-    .append('a')
-    .attr('class', 'button')
-    .text('Build my radar')
-
-  form.append('p').html("<a href='https://www.thoughtworks.com/radar/how-to-byor'>Need help?</a>")
-}
-
 function plotErrorMessage (exception) {
   var message = 'Oops! It seems like there are some problems with loading your data. '
 
@@ -288,8 +173,8 @@ function plotErrorMessage (exception) {
 
   d3.selectAll('.loading').remove()
   message = "Oops! We can't find the Google Sheet you've entered"
-  var faqMessage = 'Please check <a href="https://www.thoughtworks.com/radar/how-to-byor">FAQs</a> for possible solutions.'
-  if (exception instanceof MalformedDataError) {
+  
+	if (exception instanceof MalformedDataError) {
     message = message.concat(exception.message)
   } else if (exception instanceof SheetNotFoundError) {
     message = exception.message
@@ -302,8 +187,6 @@ function plotErrorMessage (exception) {
     .attr('class', 'error-container__message')
   errorContainer.append('div').append('p')
     .html(message)
-  errorContainer.append('div').append('p')
-    .html(faqMessage)
 
   var homePageURL = window.location.protocol + '//' + window.location.hostname
   homePageURL += (window.location.port === '' ? '' : ':' + window.location.port)
@@ -311,46 +194,6 @@ function plotErrorMessage (exception) {
 
   errorContainer.append('div').append('p')
     .html(homePage)
-}
-
-function plotUnauthorizedErrorMessage () {
-  var content = d3.select('body')
-    .append('div')
-    .attr('class', 'input-sheet')
-  setDocumentTitle()
-
-  d3.selectAll('.loading').remove()
-  const currentUser = GoogleAuth.geEmail()
-  let homePageURL = window.location.protocol + '//' + window.location.hostname
-  homePageURL += (window.location.port === '' ? '' : ':' + window.location.port)
-  const goBack = '<a href=' + homePageURL + '>GO BACK</a>'
-  const message = `<strong>Oops!</strong> Looks like you are accessing this sheet using <b>${currentUser}</b>, which does not have permission.Try switching to another account.`
-
-  const container = content.append('div').attr('class', 'error-container')
-
-  const errorContainer = container.append('div')
-    .attr('class', 'error-container__message')
-
-  errorContainer.append('div').append('p')
-    .attr('class', 'error-title')
-    .html(message)
-
-  const button = errorContainer.append('button')
-    .attr('class', 'button switch-account-button')
-    .text('SWITCH ACCOUNT')
-
-  errorContainer.append('div').append('p')
-    .attr('class', 'error-subtitle')
-    .html(`or ${goBack} to try a different sheet.`)
-
-  button.on('click', _ => {
-    var queryString = window.location.href.match(/sheetId(.*)/)
-    var queryParams = queryString ? QueryParams(queryString[0]) : {}
-    const sheet = GoogleSheet(queryParams.sheetId, queryParams.sheetName)
-    sheet.authenticate(true, _ => {
-      content.remove()
-    })
-  })
 }
 
 module.exports = GoogleSheetInput
